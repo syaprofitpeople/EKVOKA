@@ -8,24 +8,26 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Initialize PostgreSQL (Railway)
-const databaseUrl = process.env.DATABASE_URL;
+// Initialize PostgreSQL (Supabase/Railway)
+const databaseUrl = process.env.DATABASE_URL || "postgresql://postgres:Oj8eHeoEHso1uhLV@db.ygwuprvlftrzmcupqzhr.supabase.co:5432/postgres";
 
-if (!databaseUrl) {
-  console.error("❌ DATABASE_URL is missing! Please set it in Railway or AI Studio Secrets.");
+if (!process.env.DATABASE_URL) {
+  console.warn("⚠️ DATABASE_URL not found in environment variables, using Supabase fallback.");
 }
 
-// Using 'postgres' library which is better for persistent connections like Railway
-const sql = databaseUrl ? postgres(databaseUrl, {
+// Using 'postgres' library which is better for persistent connections
+const sql = postgres(databaseUrl, {
   ssl: 'require',
   connect_timeout: 10,
-}) : null;
+});
 
 // Initialize Database Table
 async function initDb() {
-  if (!sql) return;
   try {
-    console.log("⏳ Initializing Railway database...");
+    console.log("⏳ Initializing PostgreSQL database...");
+    const dbHost = new URL(databaseUrl).hostname;
+    console.log(`🔗 Connecting to database at: ${dbHost}`);
+    
     await sql`
       CREATE TABLE IF NOT EXISTS records (
         id TEXT PRIMARY KEY,
@@ -43,9 +45,9 @@ async function initDb() {
       )
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_records_created_at ON records (created_at DESC)`;
-    console.log("✅ Railway database table 'records' and indexes are ready.");
+    console.log("✅ Database table 'records' and indexes are ready.");
   } catch (err) {
-    console.error("❌ Failed to initialize Railway database:", err);
+    console.error("❌ Failed to initialize database:", err);
   }
 }
 
@@ -56,13 +58,6 @@ app.use(express.json());
 
 // Helper to check DB connection
 const checkDb = (res: express.Response) => {
-  if (!sql) {
-    res.status(500).json({ 
-      error: "Pangkalan data Railway tidak dikonfigurasi.",
-      details: "Sila masukkan DATABASE_URL dari Railway ke dalam Secrets."
-    });
-    return false;
-  }
   return true;
 };
 
