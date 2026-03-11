@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Trash2, Save, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
 import { ExamRecord, AbsentStudent } from "../types";
 import { KV_DATA } from "../data/kvData";
 import { SUBJECT_DATA } from "../data/subjectData";
@@ -28,8 +28,6 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
     setCollegeName("");
     setSubjectCode("");
     setSubjectName("");
-    setExamDate("");
-    setExamTime("");
     setTotalCandidates("");
   };
 
@@ -52,8 +50,6 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
       setCollegeName(selectedCollege.name);
       setSubjectCode("");
       setSubjectName("");
-      setExamDate("");
-      setExamTime("");
       setTotalCandidates("");
     }
   };
@@ -105,26 +101,33 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (
-      !kvCode ||
-      !state ||
-      !collegeName ||
-      !subjectCode ||
-      !examDate ||
-      !examTime ||
-      totalCandidates === ""
-    ) {
-      alert("Sila lengkapkan semua maklumat wajib.");
+    const missingFields = [];
+    if (!state) missingFields.push("Negeri");
+    if (!kvCode) missingFields.push("Kolej Vokasional");
+    if (!subjectCode) missingFields.push("Kod Mata Pelajaran");
+    if (totalCandidates === "") missingFields.push("Jumlah Calon");
+
+    if (missingFields.length > 0) {
+      alert(`Sila lengkapkan maklumat berikut: ${missingFields.join(", ")}`);
       return;
     }
 
+    // Ensure date and time are set if somehow empty
+    let finalDate = examDate;
+    let finalTime = examTime;
+    if (!finalDate || !finalTime) {
+      const now = new Date();
+      if (!finalDate) finalDate = now.toISOString().split("T")[0];
+      if (!finalTime) finalTime = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    }
+
     // Validate absent students
-    const invalidStudents = absentStudents.some(
+    const invalidStudents = absentStudents.filter(
       (s) => !s.name.trim() || !s.icNumber.trim() || !s.program.trim(),
     );
-    if (invalidStudents) {
+    if (invalidStudents.length > 0) {
       alert(
-        "Sila lengkapkan nama, no. kad pengenalan dan program untuk semua pelajar yang tidak hadir.",
+        "Sila lengkapkan Nama, No. KP, dan Program untuk semua pelajar yang tidak hadir dalam senarai.",
       );
       return;
     }
@@ -136,8 +139,8 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
       collegeName,
       subjectCode,
       subjectName,
-      examDate,
-      examTime,
+      examDate: finalDate,
+      examTime: finalTime,
       totalCandidates: Number(totalCandidates),
       absentCount: absentStudents.length,
       absentStudents,
@@ -300,12 +303,6 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed outline-none transition-all"
               />
             </div>
-            <div className="md:col-span-2 flex items-end pb-2">
-              <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
-                Tarikh dan waktu direkodkan secara automatik untuk mengelakkan penipuan.
-              </p>
-            </div>
           </div>
         </div>
 
@@ -404,8 +401,7 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
                           )
                         }
                         placeholder="Cth: Teknologi Automotif"
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-100 text-slate-500"
-                        readOnly
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                       />
                     </div>
                   </div>

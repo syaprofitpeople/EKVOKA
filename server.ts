@@ -8,22 +8,24 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Initialize Neon (PostgreSQL)
-const databaseUrl = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_3ruH1YKQWpSE@ep-small-cloud-aje7ay62-pooler.c-3.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+// Initialize PostgreSQL (Railway)
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
-  console.warn("⚠️ DATABASE_URL not found in Secrets, using provided fallback.");
+if (!databaseUrl) {
+  console.error("❌ DATABASE_URL is missing! Please set it in Railway or AI Studio Secrets.");
 }
 
-const sql = postgres(databaseUrl, {
+// Using 'postgres' library which is better for persistent connections like Railway
+const sql = databaseUrl ? postgres(databaseUrl, {
   ssl: 'require',
   connect_timeout: 10,
-});
+}) : null;
 
 // Initialize Database Table
 async function initDb() {
-  if (!databaseUrl) return;
+  if (!sql) return;
   try {
+    console.log("⏳ Initializing Railway database...");
     await sql`
       CREATE TABLE IF NOT EXISTS records (
         id TEXT PRIMARY KEY,
@@ -41,9 +43,9 @@ async function initDb() {
       )
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_records_created_at ON records (created_at DESC)`;
-    console.log("✅ Database table 'records' and indexes are ready.");
+    console.log("✅ Railway database table 'records' and indexes are ready.");
   } catch (err) {
-    console.error("❌ Failed to initialize database:", err);
+    console.error("❌ Failed to initialize Railway database:", err);
   }
 }
 
@@ -51,6 +53,18 @@ async function initDb() {
 
 export const app = express();
 app.use(express.json());
+
+// Helper to check DB connection
+const checkDb = (res: express.Response) => {
+  if (!sql) {
+    res.status(500).json({ 
+      error: "Pangkalan data Railway tidak dikonfigurasi.",
+      details: "Sila masukkan DATABASE_URL dari Railway ke dalam Secrets."
+    });
+    return false;
+  }
+  return true;
+};
 
 // SSE Clients for Admin Notifications
 const clients: express.Response[] = [];
@@ -73,13 +87,14 @@ app.get("/api/notifications", (req, res) => {
 
 // API Routes
 app.post("/api/records", async (req, res) => {
+  if (!checkDb(res)) return;
   try {
     const record = req.body;
     
     // Use the record's createdAt if provided (for migration), otherwise use current time
     const createdAt = record.createdAt || new Date().toISOString();
     
-    await sql`
+    await sql!`
       INSERT INTO records (
         id, kv_code, college_name, state, subject_code, subject_name, 
         exam_date, exam_time, total_candidates, absent_count, absent_students, created_at
@@ -115,15 +130,21 @@ app.post("/api/records", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to save record" });
+    res.status(500).json({ error: "Gagal menyimpan rekod ke pangkalan data." });
   }
 });
 
 app.get("/api/records", async (req, res) => {
+  if (!checkDb(res)) return;
   try {
-    const data = await sql`
+    console.log("⏳ Sedang mengambil data dari database...");
+
+    // Guna sql template literal
+    const data = await sql!`
       SELECT * FROM records ORDER BY created_at DESC
     `;
+
+    console.log(`✅ Berjaya fetch! Jumlah rekod ditemui: ${data.length}`);
 
     const records = data.map((r: any) => ({
       id: r.id,
@@ -136,33 +157,40 @@ app.get("/api/records", async (req, res) => {
       examTime: r.exam_time,
       totalCandidates: r.total_candidates,
       absentCount: r.absent_count,
+      // PENTING: Neon biasanya auto-parse JSONB, jadi kita pastikan ia diurus dengan betul
       absentStudents: typeof r.absent_students === 'string' ? JSON.parse(r.absent_students) : (r.absent_students || []),
       createdAt: r.created_at
     }));
 
     res.json(records);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch records" });
+  } catch (err: any) {
+    console.error("❌ Ralat ketika fetch data:", err);
+    
+    res.status(500).json({ 
+      error: "Gagal memanggil data dari pangkalan data.", 
+      details: err.message || "Ralat tidak diketahui" 
+    });
   }
 });
 
 app.delete("/api/records/:id", async (req, res) => {
+  if (!checkDb(res)) return;
   try {
-    await sql`
+    await sql!`
       DELETE FROM records WHERE id = ${req.params.id}
     `;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to delete record" });
+    res.status(500).json({ error: "Gagal memadam rekod." });
   }
 });
 
 app.put("/api/records/:id", async (req, res) => {
+  if (!checkDb(res)) return;
   try {
     const record = req.body;
-    await sql`
+    await sql!`
       UPDATE records SET
         kv_code = ${record.kvCode},
         college_name = ${record.collegeName},
@@ -179,7 +207,7 @@ app.put("/api/records/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update record" });
+    res.status(500).json({ error: "Gagal mengemaskini rekod." });
   }
 });
 

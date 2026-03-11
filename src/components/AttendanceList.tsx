@@ -19,11 +19,13 @@ import {
 interface AttendanceListProps {
   records: ExamRecord[];
   onDelete: (id: string) => void;
+  isAdmin?: boolean;
 }
 
 export default function AttendanceList({
   records,
   onDelete,
+  isAdmin = false,
 }: AttendanceListProps) {
   if (records.length === 0) {
     return (
@@ -121,31 +123,78 @@ export default function AttendanceList({
     const paginatedEntries = entries.slice((summaryPage - 1) * summaryItemsPerPage, summaryPage * summaryItemsPerPage);
 
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-500">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">{title}</th>
-                <th className="px-4 py-3 font-medium text-slate-700 text-right whitespace-nowrap">Jumlah Calon</th>
-                <th className="px-4 py-3 font-medium text-slate-700 text-right whitespace-nowrap">Jumlah Hadir</th>
-                <th className="px-4 py-3 font-medium text-slate-700 text-right whitespace-nowrap">Peratusan</th>
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200">
+                <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-xs">{title}</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-xs text-center">Statistik Kehadiran</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-xs text-right">Bil. Calon</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-xs text-right">Peratusan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500 italic">Tiada data untuk dipaparkan</td>
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic">
+                    <div className="flex flex-col items-center gap-2">
+                      <Search className="w-8 h-8 opacity-20" />
+                      <span>Tiada data untuk dipaparkan</span>
+                    </div>
+                  </td>
                 </tr>
               ) : (
                 paginatedEntries.map(([name, data]) => {
-                  const percentage = data.total > 0 ? ((data.present / data.total) * 100).toFixed(2) : "0.00";
+                  const percentageNum = data.total > 0 ? (data.present / data.total) * 100 : 0;
+                  const percentage = percentageNum.toFixed(1);
+                  
+                  // Color logic for progress bar
+                  const barColor = percentageNum >= 95 ? "bg-emerald-500" : 
+                                  percentageNum >= 80 ? "bg-indigo-500" : 
+                                  percentageNum >= 60 ? "bg-amber-500" : "bg-red-500";
+                  
+                  const textColor = percentageNum >= 95 ? "text-emerald-700" : 
+                                   percentageNum >= 80 ? "text-indigo-700" : 
+                                   percentageNum >= 60 ? "text-amber-700" : "text-red-700";
+
+                  const bgColor = percentageNum >= 95 ? "bg-emerald-50" : 
+                                 percentageNum >= 80 ? "bg-indigo-50" : 
+                                 percentageNum >= 60 ? "bg-amber-50" : "bg-red-50";
+
                   return (
-                    <tr key={name} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{name}</td>
-                      <td className="px-4 py-3 text-slate-600 text-right">{data.total}</td>
-                      <td className="px-4 py-3 text-emerald-600 font-medium text-right">{data.present}</td>
-                      <td className="px-4 py-3 text-emerald-600 font-bold text-right">{percentage}%</td>
+                    <tr key={name} className="hover:bg-slate-50/80 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{name}</span>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5 font-medium">Kategori: {title}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 min-w-[200px]">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px] font-bold uppercase tracking-tight">
+                            <span className="text-slate-400">Hadir: {data.present}</span>
+                            <span className={textColor}>{percentage}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                            <div 
+                              className={`h-full ${barColor} transition-all duration-1000 ease-out shadow-sm`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-bold text-slate-700">{data.total}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">Calon Terdaftar</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${bgColor} ${textColor} border border-current/10 shadow-sm`}>
+                          {percentage}%
+                        </span>
+                      </td>
                     </tr>
                   );
                 })
@@ -154,23 +203,27 @@ export default function AttendanceList({
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <p className="text-xs text-slate-500">
-              Menunjukkan {(summaryPage - 1) * summaryItemsPerPage + 1} hingga {Math.min(summaryPage * summaryItemsPerPage, entries.length)} daripada {entries.length} entri
+          <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
+            <p className="text-xs font-medium text-slate-500">
+              Menunjukkan <span className="text-slate-900">{(summaryPage - 1) * summaryItemsPerPage + 1}</span> - <span className="text-slate-900">{Math.min(summaryPage * summaryItemsPerPage, entries.length)}</span> daripada <span className="text-slate-900">{entries.length}</span> entri
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 disabled={summaryPage === 1}
                 onClick={() => setSummaryPage(p => p - 1)}
-                className="p-1 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-xs font-medium text-slate-700">{summaryPage} / {totalPages}</span>
+              <div className="flex items-center px-3 py-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+                <span className="text-xs font-bold text-indigo-600">{summaryPage}</span>
+                <span className="text-xs text-slate-300 mx-1.5">/</span>
+                <span className="text-xs font-medium text-slate-500">{totalPages}</span>
+              </div>
               <button
                 disabled={summaryPage === totalPages}
                 onClick={() => setSummaryPage(p => p + 1)}
-                className="p-1 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -231,36 +284,64 @@ export default function AttendanceList({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-indigo-600" />
-          Ringkasan Kehadiran
-        </h2>
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 lg:p-8 relative overflow-hidden">
+        {/* Decorative background element */}
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
         
-        <div className="flex space-x-2 mb-4 overflow-x-auto pb-2">
-          <button
-            onClick={() => { setSummaryTab('state'); setSummaryPage(1); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${summaryTab === 'state' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-          >
-            Mengikut Negeri
-          </button>
-          <button
-            onClick={() => { setSummaryTab('kv'); setSummaryPage(1); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${summaryTab === 'kv' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-          >
-            Mengikut Kolej Vokasional
-          </button>
-          <button
-            onClick={() => { setSummaryTab('course'); setSummaryPage(1); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${summaryTab === 'course' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-          >
-            Mengikut Mata Pelajaran
-          </button>
-        </div>
+        <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <FileText className="w-5 h-5" />
+                </div>
+                Ringkasan Kehadiran
+              </h2>
+              <p className="text-slate-500 text-sm mt-1 ml-13">
+                Analisis data kehadiran berdasarkan kategori yang dipilih.
+              </p>
+            </div>
+          </div>
+          
+          <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl mb-8 w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => { setSummaryTab('state'); setSummaryPage(1); }}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
+                summaryTab === 'state' 
+                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' 
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+              }`}
+            >
+              Mengikut Negeri
+            </button>
+            <button
+              onClick={() => { setSummaryTab('kv'); setSummaryPage(1); }}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
+                summaryTab === 'kv' 
+                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' 
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+              }`}
+            >
+              Mengikut KV
+            </button>
+            <button
+              onClick={() => { setSummaryTab('course'); setSummaryPage(1); }}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
+                summaryTab === 'course' 
+                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' 
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+              }`}
+            >
+              Mengikut Subjek
+            </button>
+          </div>
 
-        {summaryTab === 'state' && renderStatsTable(statsByState, 'Negeri')}
-        {summaryTab === 'kv' && renderStatsTable(statsByKV, 'Kolej Vokasional')}
-        {summaryTab === 'course' && renderStatsTable(statsByCourse, 'Mata Pelajaran')}
+          <div className="transition-all duration-300">
+            {summaryTab === 'state' && renderStatsTable(statsByState, 'Negeri')}
+            {summaryTab === 'kv' && renderStatsTable(statsByKV, 'Kolej Vokasional')}
+            {summaryTab === 'course' && renderStatsTable(statsByCourse, 'Mata Pelajaran')}
+          </div>
+        </div>
       </div>
 
       <div>
@@ -368,18 +449,20 @@ export default function AttendanceList({
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  if (
-                    window.confirm("Adakah anda pasti untuk memadam rekod ini?")
-                  ) {
-                    onDelete(record.id);
-                  }
-                }}
-                className="text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Padam
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    if (
+                      window.confirm("Adakah anda pasti untuk memadam rekod ini?")
+                    ) {
+                      onDelete(record.id);
+                    }
+                  }}
+                  className="text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Padam
+                </button>
+              )}
             </div>
 
             <div className="p-5 bg-slate-50/50 grid grid-cols-1 md:grid-cols-2 gap-6">

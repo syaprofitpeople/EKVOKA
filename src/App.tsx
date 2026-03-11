@@ -141,41 +141,52 @@ export default function App() {
 
   const handleAddRecord = async (record: ExamRecord) => {
     try {
-      await fetch("/api/records", {
+      const res = await fetch("/api/records", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(record),
       });
-      alert("Rekod berjaya disimpan!");
       
+      if (!res.ok) throw new Error("Gagal menyimpan rekod");
+      
+      toast.success("Rekod berjaya disimpan!");
       fetchRecords();
-      setActiveTab("list");
-    } catch (e) {
+      if (isAdmin) {
+        setActiveTab("list");
+      }
+    } catch (e: any) {
       console.error("Failed to save record", e);
-      alert("Ralat semasa menyimpan rekod.");
+      toast.error(`Ralat: ${e.message}`);
     }
   };
 
   const handleDeleteRecord = async (id: string) => {
     try {
-      await fetch(`/api/records/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/records/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Gagal memadam rekod");
+      
+      toast.success("Rekod berjaya dipadam!");
       fetchRecords();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to delete record", e);
+      toast.error(`Ralat: ${e.message}`);
     }
   };
 
   const handleUpdateRecord = async (record: ExamRecord) => {
     try {
-      await fetch(`/api/records/${record.id}`, {
+      const res = await fetch(`/api/records/${record.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(record),
       });
+      if (!res.ok) throw new Error("Gagal mengemaskini rekod");
+      
+      toast.success("Rekod berjaya dikemaskini!");
       fetchRecords();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to update record", e);
-      alert("Ralat semasa mengemaskini rekod.");
+      toast.error(`Ralat: ${e.message}`);
     }
   };
 
@@ -254,6 +265,28 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {dbError && (
+          <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div className="flex-grow text-center sm:text-left">
+              <h3 className="text-lg font-bold text-amber-900">Konfigurasi Diperlukan</h3>
+              <p className="text-amber-700 text-sm mt-1">
+                {dbError}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <button 
+                onClick={() => fetchRecords()}
+                className="px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-xl hover:bg-amber-700 transition-all shadow-sm shadow-amber-100"
+              >
+                Cuba Lagi
+              </button>
+            </div>
+          </div>
+        )}
+
         {showLogin ? (
           <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-8 animate-in fade-in zoom-in duration-300">
             <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -304,13 +337,17 @@ export default function App() {
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <AttendanceForm onSubmit={handleAddRecord} />
               </div>
-            ) : activeTab === "list" ? (
+            ) : activeTab === "list" && isAdmin ? (
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <AttendanceList records={records} onDelete={handleDeleteRecord} />
+                <AttendanceList records={records} onDelete={handleDeleteRecord} isAdmin={isAdmin} />
+              </div>
+            ) : activeTab === "students" && isAdmin ? (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <StudentManager records={records} onUpdateRecord={handleUpdateRecord} isAdmin={isAdmin} />
               </div>
             ) : (
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <StudentManager records={records} onUpdateRecord={handleUpdateRecord} />
+                <AttendanceForm onSubmit={handleAddRecord} />
               </div>
             )}
           </div>
